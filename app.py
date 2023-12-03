@@ -16,7 +16,7 @@ class DatabaseClass:
             FROM pos_frequencies;
         '''
         result_total_pos_tags = self._cursor.execute(query_total_pos_tags)
-        print("\nTotal POS Tags:")
+        print("\nКіл-сть POS Tags:")
         print(result_total_pos_tags.fetchone()[0])
 
         #виведення для кількості лем у lemma_frequencies
@@ -25,7 +25,7 @@ class DatabaseClass:
             FROM lemma_frequencies;
         '''
         result_total_lemmas = self._cursor.execute(query_total_lemmas)
-        print("\nTotal Lemmas:")
+        print("\nЗагальна кіл-сть лем:")
         print(result_total_lemmas.fetchone()[0])
 
         #виведення для кількості унікальних слів у word_frequencies
@@ -34,14 +34,13 @@ class DatabaseClass:
             FROM word_frequencies;
         '''
         result_unique_words = self._cursor.execute(query_unique_words)
-        print("\nUnique Words:")
+        print("\nКіл-сть унікальних слів:")
         print(result_unique_words.fetchone()[0])
 
-        #виведення для топ-10 слів за кількістю вживань
-        query_top_words = '''
+        query_top_words_total = '''
             SELECT
                 word,
-                SUM(freq_1) AS total_usage
+                SUM(gen_freq) AS total_usage
             FROM
                 word_frequencies
             GROUP BY
@@ -50,16 +49,16 @@ class DatabaseClass:
                 total_usage DESC
             LIMIT 10;
         '''
-        result_top_words = self._cursor.execute(query_top_words)
-        print("\nTop 10 Words:")
-        for row in result_top_words:
+        result_top_words_total = self._cursor.execute(query_top_words_total)
+        print("\nTop 10 Words (Total Usage):")
+        for row in result_top_words_total:
             print(row)
 
-        #виведення для топ-10 лем за кількістю вживань
-        query_top_lemmas = '''
+        # виведення для топ-10 лем за кількістю вживань (загальна кількість)
+        query_top_lemmas_total = '''
             SELECT
                 lemma,
-                SUM(freq_1) AS total_usage
+                SUM(gen_freq) AS total_usage
             FROM
                 lemma_frequencies
             GROUP BY
@@ -68,29 +67,14 @@ class DatabaseClass:
                 total_usage DESC
             LIMIT 10;
         '''
-        result_top_lemmas = self._cursor.execute(query_top_lemmas)
-        print("\nTop 10 Lemmas:")
-        for row in result_top_lemmas:
+        result_top_lemmas_total = self._cursor.execute(query_top_lemmas_total)
+        print("\nTop 10 Lemmas (Total Usage):")
+        for row in result_top_lemmas_total:
             print(row)
-
 
 # Функція для перевірки, чи написано слово латиницею
 def is_latin(word):
     return bool(re.match(r'^[a-zA-Z]+$', word))
-
-# Функція для виведення слів кожної частини мови у консоль
-def print_words_by_pos(pos_tags, words):
-    pos_dict = {}
-    for pos, word in zip(pos_tags, words):
-        if pos is not None:
-            pos = pos.capitalize()
-            if pos not in pos_dict:
-                pos_dict[pos] = []
-            pos_dict[pos].append(word)
-
-    print("Слова за частинами мови:")
-    for pos, words_list in pos_dict.items():
-        print(f"{pos}: {', '.join(words_list)}")
 
 # Просимо користувача ввести назву файлу, який хочемо обробити і відкриваємо його
 filename = input("Введіть назву файлу (разом з розширенням), який ви хочете обробити: ")
@@ -108,9 +92,7 @@ with open(filename, encoding="utf-8") as data_1:
     # Обмежуємо кількість токенів до 20000
     non_latin_words = non_latin_words[:20000]
 
-    # Виводимо токени та їхню кіл-сть у консоль
-    print("Виділені словоформи:")
-    print(", ".join(non_latin_words))
+    # Виводимо кіл-сть токенів у консоль
     token_count = len(non_latin_words)
     print(f"\nКількість словоформ: {token_count}")
 
@@ -244,9 +226,6 @@ with open(filename, encoding="utf-8") as data_1:
     # Застосовуємо функцію до всіх слів
     pos_tags = [get_pos(word) for word in non_latin_words]
 
-    # Роздруковуємо слова за частинами мови
-    print_words_by_pos(pos_tags, non_latin_words)
-
     # Записуємо DataFrame в базу даних
     pos_df.to_sql('pos_frequencies', conn, if_exists='replace', index=False)
     # Додаємо колонку 'total_pos_frequencies' до таблиці 'pos_frequencies'
@@ -266,7 +245,7 @@ with open(filename, encoding="utf-8") as data_1:
         conn.execute(query)
 
     # Розрахунок TF-IDF з обмеженням кількості фіч
-    vectorizer = TfidfVectorizer(max_features=1000)  # Adjust the number as needed
+    vectorizer = TfidfVectorizer(max_features=1000)  
     tfidf_matrix = vectorizer.fit_transform([' '.join(lemmas)])
 
     # Створюємо DataFrame для TF-IDF
